@@ -1,0 +1,11 @@
+name: TabAPI
+main: org.mcsg.double0negative.tabapi.TabAPI
+version: B 0.1.15
+authors: [Double0negative, MCSG]
+depend: [ProtocolLib]
+
+commands:
+  tabapi:
+    description: TabAPI
+    usage: /tab
+    aliases: [tab]
