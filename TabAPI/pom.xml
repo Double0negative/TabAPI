@@ -28,6 +28,7 @@
                 <filtering>true</filtering>
                 <includes>
                     <include>plugin.yml</include>
+                    <include>doc/*/**</include>
                 </includes>
             </resource>
         </resources>
