@@ -226,7 +226,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	public static void setTabString(Plugin plugin, Player p, int x, int y, String msg, int ping){
 		try{
 			TabObject tabo = getTab(p);
-			tabo.setTab(plugin, x, y,msg+":"+ping);
+			tabo.setTab(plugin, x, y,msg,ping);
 			playerTab.put(p.getName(), tabo);
 		}catch(Exception e){e.printStackTrace();}
 
@@ -255,17 +255,13 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		
 		for(int b = 0; b < tab.maxv; b++){
 			for(int a = 0; a < tab.maxh ; a++){	
-				if(tab.tab[a][b] == null){
-					tab.tab[a][b] = nextNull();
-				}
+				// fix empty tabs
+				if(tab.tabs[a][b] == null) tab.tabs[a][b] = nextNull();
 
-				String msg2 = tab.tab[a][b];
-				String[] split = msg2.split(":");
-				String msg = split[0];
-				int ping = 0;
-				if(split.length == 2)
-				 ping = Integer.parseInt(split[1]);
-			//System.out.print(a+":"+b+":"+msg);
+				String msg = tab.tabs[a][b];
+				int ping = tab.tabPings[a][b];
+				
+				//System.out.print(a+":"+b+":"+msg);
 				sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), true, ping);
 			}
 		}
@@ -287,14 +283,12 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		}*/
 
 		if(tabold != null){
-			for(String [] s: tabold.tab){
-				for(String str:s){					
-					String msg = str;
-					if(msg != null){
-						String[] split = msg.split(":");
-						String msg2 = split[0];
-						sendPacket(p, (msg2 == null)? " ": msg2.substring(0, Math.min(msg2.length(), 16)), false, 0);
-					}
+			for(String [] s: tabold.tabs){
+				for(String msg:s){
+					sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), false, 0);
+					//if(msg != null){
+					//	sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), false, 0);
+					//}
 				}
 			}
 		}
