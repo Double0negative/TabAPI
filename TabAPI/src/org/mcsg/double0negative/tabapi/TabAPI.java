@@ -270,9 +270,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 			}
 		}
 
-		TabHolder o = new TabHolder();
-		o.tab = copyArray(tabo.getTab().tab);
-		playerTabLast.put(p.getName(),o);
+		playerTabLast.put(p.getName(),tabo.getTab().getCopy());
 	}
 
 	/**
@@ -326,16 +324,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		return s;
 	}
 
-	/* Util method, copy tab array to new array */
-	private static String[][] copyArray(String[][] tab){
-		String[][] temp = new String[horzTabSize][vertTabSize];
-		for(int b = 0; b < vertTabSize; b++){
-			for(int a = 0; a < horzTabSize ; a++){
-				temp[a][b] = tab[a][b];
-			}
-		}
-		return temp;
-	}
+
 
 
 	@EventHandler(priority = EventPriority.LOWEST)
