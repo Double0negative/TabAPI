@@ -2,7 +2,6 @@ package org.mcsg.double0negative.tabapi;
 
 import java.util.HashMap;
 
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 public class TabObject{
