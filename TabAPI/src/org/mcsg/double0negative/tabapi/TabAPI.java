@@ -2,6 +2,7 @@ package org.mcsg.double0negative.tabapi;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.bukkit.Bukkit;
@@ -46,6 +47,8 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 
 	private static HashMap<String, TabObject>playerTab = new HashMap<String, TabObject>();
 	private static HashMap<String, TabHolder>playerTabLast = new HashMap<String, TabHolder>();
+	
+	private static HashMap<Player, ArrayList<PacketContainer>>cachedPackets = new HashMap<Player, ArrayList<PacketContainer>>();
 
 	private static int horzTabSize = 3;
 	private static int vertTabSize = 20;
@@ -108,7 +111,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	public void onDisable(){
 		shuttingdown = true;
 		for(Player p: Bukkit.getOnlinePlayers()){
-			clearTab(p);
+			clearTab(p, true);
 		}
 		playerTab = null;
 		playerTabLast = null;
@@ -138,17 +141,30 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
         
     }
 
-	private static void sendPacket(Player p, String msg, boolean b, int ping){
+	private static void addPacket(Player p, String msg, boolean b, int ping){
 		PacketContainer message = protocolManager.createPacket(Packets.Server.PLAYER_INFO);
 		message.getStrings().write(0, ((!shuttingdown)?"$":"")+msg);
 		message.getBooleans().write(0, b);
 		message.getIntegers().write(0, ping);
-		try {
-			protocolManager.sendServerPacket(p, message);
-		} catch (InvocationTargetException e) {
-			e.printStackTrace();
-			System.out.println("[TabAPI] Error sending packet to client");
+		ArrayList<PacketContainer> packetList = cachedPackets.get(p);
+		if (packetList == null) packetList = new ArrayList<PacketContainer>();
+		packetList.add(message);
+	}
+	
+	private static void flushPackets() {
+		for (Player p : cachedPackets.keySet()) {
+			if (p.isOnline()) {
+				for (PacketContainer packet : cachedPackets.get(p)) {
+					try {
+						protocolManager.sendServerPacket(p, packet);
+					} catch (InvocationTargetException e) {
+						e.printStackTrace();
+						System.out.println("[TabAPI] Error sending packet to client");
+					}
+				}
+			}
 		}
+		cachedPackets.clear();
 	}
 	
 	
@@ -245,7 +261,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		TabObject tabo = playerTab.get(p.getName());
 
 		/* need to clear the tab first */
-		clearTab(p);
+		clearTab(p, false);
 		TabHolder tab = tabo.getTab();
 
 		if(tab == null){
@@ -261,9 +277,10 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 				int ping = tab.tabPings[a][b];
 				
 				//System.out.print(a+":"+b+":"+msg);
-				sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), true, ping);
+				addPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), true, ping);
 			}
 		}
+		flushPackets();
 
 		playerTabLast.put(p.getName(),tabo.getTab().getCopy());
 	}
@@ -272,7 +289,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	 * Clear a players tab menu
 	 * @param p
 	 */
-	public static void clearTab(Player p){
+	public static void clearTab(Player p, boolean flush){
 		if(!p.isOnline())return;
 		//System.out.println("Clearing");
 		TabHolder tabold = playerTabLast.get(p.getName());
@@ -281,12 +298,12 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 			for(String [] s: tabold.tabs){
 				for(String msg:s){
 					if(msg != null){
-						sendPacket(p, msg.substring(0, Math.min(msg.length(), 16)), false, 0);
+						addPacket(p, msg.substring(0, Math.min(msg.length(), 16)), false, 0);
 					}
 				}
 			}
 		}
-
+		if (flush) flushPackets();
 	}
 
 	public static void updateAll(){
