@@ -27,9 +27,7 @@ public class TabObject{
 			}
 		}
 		if(pri > -2){
-			TabHolder t = new TabHolder();
-			t.tabs = new String[3][20];
-			t.p = p;
+			TabHolder t = new TabHolder(p);
 			tabs.put(pri,t );
 		}
 	}
@@ -40,9 +38,7 @@ public class TabObject{
 			a--;
 		}
 		if(a == -2){
-			TabHolder  t = new TabHolder();
-			t.tabs = new String[3][20];
-			return t;
+			return new TabHolder(null);
 		}
 		//System.out.print("Getting tab "+a+" "+tabs.get(a).p.getName());
 		return tabs.get(a);

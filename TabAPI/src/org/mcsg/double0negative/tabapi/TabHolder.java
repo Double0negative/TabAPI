@@ -18,8 +18,14 @@ class TabHolder{
 	
 	int maxh = 0, maxv = 0;
 	
+	public TabHolder(Plugin p) {
+		this.p = p;
+		this.tabs = new String[3][20];
+		this.tabPings = new int[3][20];
+	}
+
 	public TabHolder getCopy() {
-		TabHolder newCopy = new TabHolder();
+		TabHolder newCopy = new TabHolder(p);
 		newCopy.tabs = copyStringArray(tabs);
 		newCopy.tabPings = copyIntArray(tabPings);
 		return newCopy;
