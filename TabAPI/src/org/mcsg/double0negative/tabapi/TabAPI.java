@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -278,17 +277,12 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		//System.out.println("Clearing");
 		TabHolder tabold = playerTabLast.get(p.getName());
 
-		/*for(Player pl: Bukkit.getOnlinePlayers()){
-			sendPacket(p, pl.getPlayerListName().substring(0, Math.min(pl.getPlayerListName().length(), 16)), false, 0);
-		}*/
-
 		if(tabold != null){
 			for(String [] s: tabold.tabs){
 				for(String msg:s){
-					sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), false, 0);
-					//if(msg != null){
-					//	sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), false, 0);
-					//}
+					if(msg != null){
+						sendPacket(p, msg.substring(0, Math.min(msg.length(), 16)), false, 0);
+					}
 				}
 			}
 		}
@@ -317,25 +311,6 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		}
 		return s;
 	}
-
-
-
-
-	@EventHandler(priority = EventPriority.LOWEST)
-	public void PlayerJoin(PlayerJoinEvent e){
-		//ensure that the join packet has actually been sent, send d/c packet
-	/*	final Player p = e.getPlayer();
-		Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable(){
-			public void run(){
-				for(Player p: Bukkit.getOnlinePlayers()){
-					if(playerTab.get(p.getName()) != null){
-						((CraftPlayer)p).getHandle().playerConnection.sendPacket(new Packet201PlayerInfo(p.getName(), false, 0));
-					}
-				}
-			}
-		}, 1);*/
-	}
-
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void PlayerLeave(PlayerQuitEvent e){
