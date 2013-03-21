@@ -20,8 +20,8 @@ class TabHolder{
 	
 	public TabHolder(Plugin p) {
 		this.p = p;
-		this.tabs = new String[3][20];
-		this.tabPings = new int[3][20];
+		this.tabs = new String[TabAPI.getHorizSize()][TabAPI.getVertSize()];
+		this.tabPings = new int[TabAPI.getHorizSize()][TabAPI.getVertSize()];
 	}
 
 	public TabHolder getCopy() {

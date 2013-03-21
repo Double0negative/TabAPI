@@ -173,7 +173,6 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		if(tabo == null){
 			tabo = new TabObject();
 			playerTab.put(p.getName(), tabo);
-			//tabo.getTab().tab = new String[3][20];
 		}
 		return tabo;
 	}
