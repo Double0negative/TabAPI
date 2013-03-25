@@ -182,7 +182,8 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	}
 
 	private static void flushPackets() {
-		for (Player p : cachedPackets.keySet()) {
+		final Player[] packetPlayers = cachedPackets.keySet().toArray(new Player[0]);
+		for (Player p : packetPlayers) {
 			flushPackets(p, null);
 		}
 	}
