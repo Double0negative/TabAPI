@@ -367,7 +367,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		for(int a = 0; a < r; a++){
 			s = " "+s;
 		}
-		s = s + "§" + colors[e];
+		s = s + "\u00A7" + colors[e];
 		e++; 
 		if(e > 14){
 			e = 0;
