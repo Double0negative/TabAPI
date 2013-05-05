@@ -2,7 +2,6 @@ package org.mcsg.double0negative.tabapi;
 
 import java.util.HashMap;
 
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 public class TabObject{
@@ -28,9 +27,7 @@ public class TabObject{
 			}
 		}
 		if(pri > -2){
-			TabHolder t = new TabHolder();
-			t.tab = new String[3][20];
-			t.p = p;
+			TabHolder t = new TabHolder(p);
 			tabs.put(pri,t );
 		}
 	}
@@ -41,15 +38,13 @@ public class TabObject{
 			a--;
 		}
 		if(a == -2){
-			TabHolder  t = new TabHolder();
-			t.tab = new String[3][20];
-			return t;
+			return new TabHolder(null);
 		}
 		//System.out.print("Getting tab "+a+" "+tabs.get(a).p.getName());
 		return tabs.get(a);
 	}
 
-	public void setTab(Plugin plugin, int x, int y, String msg) {
+	public void setTab(Plugin plugin, int x, int y, String msg, int ping) {
 		int a = -1;
 		while((tabs.get(a)==null || tabs.get(a).p != plugin) && a <3){
 			a++;
@@ -63,7 +58,8 @@ public class TabObject{
 
 		TabHolder t = tabs.get(a);
 
-		t.tab[y][x] = msg;
+		t.tabs[y][x] = msg;
+		t.tabPings[y][x] = ping;
 		t.maxh = 3;
 		t.maxv = Math.max(x+1, t.maxv);
 	}

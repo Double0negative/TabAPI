@@ -204,7 +204,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		for(Player pl : Bukkit.getOnlinePlayers()){
 			setTabString(Bukkit.getPluginManager().getPlugin("TabAPI"), p, a, b, pl.getPlayerListName());
 			b++;
-			if(b > horzTabSize - 1){
+			if(b > horzTabSize){
 				b = 0;
 				a++;
 			}
@@ -323,7 +323,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		for(int a = 0; a < r; a++){
 			s = " "+s;
 		}
-		s = s + "ï¿½" + colors[e];
+		s = s + "§" + colors[e];
 		e++; 
 		if(e > 14){
 			e = 0;
