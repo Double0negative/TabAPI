@@ -2,24 +2,20 @@ package org.mcsg.double0negative.tabapi;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-
-
-import net.minecraft.server.v1_4_R1.Packet201PlayerInfo;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.v1_4_R1.entity.CraftPlayer;
+import org.bukkit.configuration.MemoryConfiguration;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -53,6 +49,9 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 
 	private static HashMap<String, TabObject>playerTab = new HashMap<String, TabObject>();
 	private static HashMap<String, TabHolder>playerTabLast = new HashMap<String, TabHolder>();
+	
+	private static HashMap<Player, ArrayList<PacketContainer>>cachedPackets = new HashMap<Player, ArrayList<PacketContainer>>();
+	private static HashMap<Player, Integer>updateSchedules = new HashMap<Player, Integer>();
 
 	private static int horzTabSize = 3;
 	private static int vertTabSize = 20;
@@ -60,13 +59,31 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 
 	private static int e = 0;
 	private static int r = 0;
+	
+	private static long flickerPrevention = 5L;
 
 	private static ProtocolManager protocolManager;
 
 	private static boolean shuttingdown = false;
 	
+	private static TabAPI plugin;
+	
 	public void onEnable(){
-
+		TabAPI.plugin = this;
+		
+		// read initial config if there's any
+		FileConfiguration config = getConfig();
+		config.options().copyDefaults(true);
+		
+		// add defaults if there are new ones
+		MemoryConfiguration defaultConfig = new MemoryConfiguration();
+		defaultConfig.set("flickerPrevention", flickerPrevention);
+		config.setDefaults(defaultConfig);
+		saveConfig();
+		
+		// load config settings
+		reloadConfiguration();
+		
 		this.getCommand("tabapi").setExecutor(this);
 		
 		try {
@@ -109,7 +126,11 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 			}
 		});
 
-
+	}
+	
+	public void reloadConfiguration() {
+		reloadConfig();
+		flickerPrevention = getConfig().getLong("flickerPrevention");
 	}
 
 	public void onDisable(){
@@ -117,6 +138,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		for(Player p: Bukkit.getOnlinePlayers()){
 			clearTab(p);
 		}
+		flushPackets();
 		playerTab = null;
 		playerTabLast = null;
 	}
@@ -129,6 +151,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
         if (sender instanceof Player) {
             player = (Player) sender;
             if(args.length == 1 && player.hasPermission("tabapi.reload")){
+            	reloadConfiguration();
             	updateAll();
             }
             else{
@@ -145,17 +168,58 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
         
     }
 
-	private static void sendPacket(Player p, String msg, boolean b, int ping){
+	private static void addPacket(Player p, String msg, boolean b, int ping){
 		PacketContainer message = protocolManager.createPacket(Packets.Server.PLAYER_INFO);
 		message.getStrings().write(0, ((!shuttingdown)?"$":"")+msg);
 		message.getBooleans().write(0, b);
 		message.getIntegers().write(0, ping);
-		try {
-			protocolManager.sendServerPacket(p, message);
-		} catch (InvocationTargetException e) {
-			e.printStackTrace();
-			System.out.println("[TabAPI] Error sending packet to client");
+		ArrayList<PacketContainer> packetList = cachedPackets.get(p);
+		if (packetList == null) {
+			packetList = new ArrayList<PacketContainer>();
+			cachedPackets.put(p, packetList);
 		}
+		packetList.add(message);
+	}
+
+	private static void flushPackets() {
+		final Player[] packetPlayers = cachedPackets.keySet().toArray(new Player[0]);
+		for (Player p : packetPlayers) {
+			flushPackets(p, null);
+		}
+	}
+
+	private static void flushPackets(final Player p, final TabHolder tabCopy) {
+		final PacketContainer[] packets = (PacketContainer[]) cachedPackets.get(p).toArray(new PacketContainer[0]);
+		
+		// cancel old task (prevents flickering)
+		Integer taskID = updateSchedules.get(p);
+		if (taskID != null) {
+			Bukkit.getScheduler().cancelTask(taskID);
+		}
+		
+		taskID = Bukkit.getScheduler().scheduleSyncDelayedTask(TabAPI.plugin, new Runnable() {
+			@Override
+			public void run() {
+				if (p.isOnline()) {
+					
+					for (PacketContainer packet : packets) {
+						try {
+							protocolManager.sendServerPacket(p, packet);
+						} catch (InvocationTargetException e) {
+							e.printStackTrace();
+							System.out.println("[TabAPI] Error sending packet to client");
+						}
+					}
+				}
+				if (tabCopy != null) playerTabLast.put(p.getName(), tabCopy); // we set this only if we really finally flush it (which is just now)
+				updateSchedules.remove(p); // we're done, no need to cancel this one on next run
+			}
+		}, flickerPrevention);
+		
+		// let's keep a reference to be able to cancel this (see above)
+		updateSchedules.put(p, taskID);
+		
+		cachedPackets.remove(p);
 	}
 	
 	
@@ -164,7 +228,6 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		if(tabo == null){
 			tabo = new TabObject();
 			playerTab.put(p.getName(), tabo);
-			//tabo.getTab().tab = new String[3][20];
 		}
 		return tabo;
 	}
@@ -232,7 +295,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	public static void setTabString(Plugin plugin, Player p, int x, int y, String msg, int ping){
 		try{
 			TabObject tabo = getTab(p);
-			tabo.setTab(plugin, x, y,msg+":"+ping);
+			tabo.setTab(plugin, x, y,msg,ping);
 			playerTab.put(p.getName(), tabo);
 		}catch(Exception e){e.printStackTrace();}
 
@@ -250,35 +313,25 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		if(!p.isOnline()) return;
 		r = 0; e = 0;
 		TabObject tabo = playerTab.get(p.getName());
-
+		TabHolder tab = tabo.getTab();
+		if(tab == null) return;
+		
 		/* need to clear the tab first */
 		clearTab(p);
-		TabHolder tab = tabo.getTab();
-
-		if(tab == null){
-			return;
-		}
 		
 		for(int b = 0; b < tab.maxv; b++){
 			for(int a = 0; a < tab.maxh ; a++){	
-				if(tab.tab[a][b] == null){
-					tab.tab[a][b] = nextNull();
-				}
+				// fix empty tabs
+				if(tab.tabs[a][b] == null) tab.tabs[a][b] = nextNull();
 
-				String msg2 = tab.tab[a][b];
-				String[] split = msg2.split(":");
-				String msg = split[0];
-				int ping = 0;
-				if(split.length == 2)
-				 ping = Integer.parseInt(split[1]);
-			//System.out.print(a+":"+b+":"+msg);
-				sendPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), true, ping);
+				String msg = tab.tabs[a][b];
+				int ping = tab.tabPings[a][b];
+				
+				addPacket(p, (msg == null)? " ": msg.substring(0, Math.min(msg.length(), 16)), true, ping);
 			}
 		}
+		flushPackets(p, tab.getCopy());
 
-		TabHolder o = new TabHolder();
-		o.tab = copyArray(tabo.getTab().tab);
-		playerTabLast.put(p.getName(),o);
 	}
 
 	/**
@@ -287,26 +340,18 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 	 */
 	public static void clearTab(Player p){
 		if(!p.isOnline())return;
-		//System.out.println("Clearing");
+
 		TabHolder tabold = playerTabLast.get(p.getName());
 
-		/*for(Player pl: Bukkit.getOnlinePlayers()){
-			sendPacket(p, pl.getPlayerListName().substring(0, Math.min(pl.getPlayerListName().length(), 16)), false, 0);
-		}*/
-
 		if(tabold != null){
-			for(String [] s: tabold.tab){
-				for(String str:s){					
-					String msg = str;
+			for(String [] s: tabold.tabs){
+				for(String msg:s){
 					if(msg != null){
-						String[] split = msg.split(":");
-						String msg2 = split[0];
-						sendPacket(p, (msg2 == null)? " ": msg2.substring(0, Math.min(msg2.length(), 16)), false, 0);
+						addPacket(p, msg.substring(0, Math.min(msg.length(), 16)), false, 0);
 					}
 				}
 			}
 		}
-
 	}
 
 	public static void updateAll(){
@@ -323,7 +368,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		for(int a = 0; a < r; a++){
 			s = " "+s;
 		}
-		s = s + "§" + colors[e];
+		s = s + "\u00A7" + colors[e];
 		e++; 
 		if(e > 14){
 			e = 0;
@@ -331,34 +376,6 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 		}
 		return s;
 	}
-
-	/* Util method, copy tab array to new array */
-	private static String[][] copyArray(String[][] tab){
-		String[][] temp = new String[horzTabSize][vertTabSize];
-		for(int b = 0; b < vertTabSize; b++){
-			for(int a = 0; a < horzTabSize ; a++){
-				temp[a][b] = tab[a][b];
-			}
-		}
-		return temp;
-	}
-
-
-	@EventHandler(priority = EventPriority.LOWEST)
-	public void PlayerJoin(PlayerJoinEvent e){
-		//ensure that the join packet has actually been sent, send d/c packet
-	/*	final Player p = e.getPlayer();
-		Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable(){
-			public void run(){
-				for(Player p: Bukkit.getOnlinePlayers()){
-					if(playerTab.get(p.getName()) != null){
-						((CraftPlayer)p).getHandle().playerConnection.sendPacket(new Packet201PlayerInfo(p.getName(), false, 0));
-					}
-				}
-			}
-		}, 1);*/
-	}
-
 
 	@EventHandler(priority = EventPriority.HIGHEST)
 	public void PlayerLeave(PlayerQuitEvent e){
