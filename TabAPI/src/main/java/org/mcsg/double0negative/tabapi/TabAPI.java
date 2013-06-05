@@ -55,7 +55,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor{
 
 	private static int horzTabSize = 3;
 	private static int vertTabSize = 20;
-	private static String[] colors = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "a","b", "c", "d", "f"};
+	private static String[] colors = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "a","b", "c", "d", "f", "g", "h", "i", "j","k","l","m","n","o","p","r","s","t","u","v","w","x","y","z"};
 
 	private static int e = 0;
 	private static int r = 0;
