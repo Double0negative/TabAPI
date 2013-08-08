@@ -14,7 +14,7 @@ public enum Priority {
 		this.priority = priority;
 	}
 			
-	public int getPriority(){
+	public int getPriorityIntValue(){
 		return this.priority;
 	}
 	
