@@ -1,5 +1,14 @@
 package org.mcsg.double0negative.tabapi;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.ProtocolManager;
+import com.comphenix.protocol.events.ListenerPriority;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -13,20 +22,11 @@ import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
-import com.comphenix.protocol.Packets;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.ConnectionSide;
-import com.comphenix.protocol.events.ListenerPriority;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
 
 /**
  * TabAPI
@@ -89,26 +89,37 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
             resetTabList(p);
             setPriority(plugin, p, -2);
         }
-        protocolManager.addPacketListener(new PacketAdapter(this,
-                ConnectionSide.SERVER_SIDE, ListenerPriority.NORMAL, Packets.Server.PLAYER_INFO) {
+        protocolManager.addPacketListener(new PacketAdapter(
+                this,
+                ListenerPriority.NORMAL,
+                PacketType.Play.Server.PLAYER_INFO) {
                     @Override
                     public void onPacketSending(PacketEvent event)
                     {
-                        switch (event.getPacketID())
+                        PacketContainer p = event.getPacket();
+                        if (protocolManager.getProtocolVersion(event.getPlayer()) >= 47)
                         {
-                            case Packets.Server.PLAYER_INFO:
-                                PacketContainer p = event.getPacket();
-                                String s = p.getStrings().read(0);
-                                if (s.startsWith("$"))
-                                {  // this is a packet sent by TabAPI **Work around until I figure out how to make my own
-                                    p.getStrings().write(0, s.substring(1));  // packets bypass this block**
-                                    event.setPacket(p);
-                                }
-                                else
-                                {
-                                    event.setCancelled(true);
-                                }
-                                break;
+                            // 1.8 >
+                            String s = p.getStrings().read(0);
+                            if (s.startsWith("$"))
+                            {
+                                event.setCancelled(true);
+                            }
+                            event.setPacket(p);
+                        }
+                        else
+                        {
+                            // 1.7.10 <
+                            String s = p.getStrings().read(0);
+                            if (s.startsWith("$"))
+                            {
+                                p.getStrings().write(0, s.substring(1));
+                                event.setPacket(p);
+                            }
+                            else
+                            {
+                                event.setCancelled(true);
+                            }
                         }
                     }
                 });
@@ -149,6 +160,38 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
             else
             {
                 player.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD + "TabAPI - Double0negative" + ChatColor.RESET + ChatColor.RED + " Version: " + pdfFile.getVersion());
+                int iii = 0;
+                for (int i = 0; i <= 19; i++)
+                {
+                    PacketContainer message = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
+                    String msg = "-" + iii;
+                    String nameToShow = ((!shuttingdown) ? "$" : "") + msg;
+                    boolean b = true;
+                    int ping = 0;
+                    int action;
+                    if (b)
+                    {
+                        action = 0;
+                    }
+                    else
+                    {
+                        action = 4;
+                    }
+                    message.getIntegers().write(0, action);  // int - ACTION
+                    message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow).getBytes(Charsets.UTF_8)), nameToShow));
+                    message.getIntegers().write(1, 0); // int - GAMEMODE
+                    message.getIntegers().write(2, ping); // int - PING
+                    message.getStrings().write(0, nameToShow); // string - DISPLAYNAME
+                    try
+                    {
+                        protocolManager.sendServerPacket(player, message);
+                    }
+                    catch (InvocationTargetException e)
+                    {
+                        throw new RuntimeException("Cannot send packet " + message, e);
+                    }
+                    iii++;
+                }
             }
         }
         else
@@ -161,10 +204,36 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
 
     private static void addPacket(Player p, String msg, boolean b, int ping)
     {
-        PacketContainer message = protocolManager.createPacket(Packets.Server.PLAYER_INFO);
-        message.getStrings().write(0, ((!shuttingdown) ? "$" : "") + msg);
-        message.getBooleans().write(0, b);
-        message.getIntegers().write(0, ping);
+        PacketContainer message = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
+        String nameToShow = ((!shuttingdown) ? "$" : "") + msg;
+        // 1.8 >
+        /*
+         getIntegers = 3
+         getStrings = 1
+         getModifier = 5
+         [
+         int
+         class net.minecraft.util.com.mojang.authlib.GameProfile
+         int
+         int
+         class java.lang.String
+         ]
+         */
+        int action;
+        if (b)
+        {
+            action = 0;
+        }
+        else
+        {
+            action = 4;
+        }
+        message.getIntegers().write(0, action);  // int - ACTION
+        message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow).getBytes(Charsets.UTF_8)), nameToShow));
+        message.getIntegers().write(1, 0); // int - GAMEMODE
+        message.getIntegers().write(2, ping); // int - PING
+        message.getStrings().write(0, nameToShow); // string - DISPLAYNAME
+        //
         ArrayList<PacketContainer> packetList = cachedPackets.get(p);
         if (packetList == null)
         {
@@ -240,6 +309,9 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
      * -2 = no longer active, remove -1 = background, only show if nothing else is there 0 = normal 1 = high priority 2
      * = always show, only use if MUST show
      *
+     * @param plugin
+     * @param player
+     * @param pri
      */
     public static void setPriority(Plugin plugin, Player player, int pri)
     {
@@ -305,9 +377,9 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
             tabo.setTab(plugin, x, y, msg, ping);
             playerTab.put(p.getName(), tabo);
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            e.printStackTrace();
+            ex.printStackTrace();
         }
     }
 
@@ -405,7 +477,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         return s;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler
     public void PlayerLeave(PlayerQuitEvent e)
     {
         //cleanup
