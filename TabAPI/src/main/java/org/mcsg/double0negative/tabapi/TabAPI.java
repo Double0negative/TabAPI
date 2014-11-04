@@ -23,6 +23,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -41,10 +42,14 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
 
     private static HashMap<String, TabObject> playerTab = new HashMap<String, TabObject>();
     private static HashMap<String, TabHolder> playerTabLast = new HashMap<String, TabHolder>();
+    private static HashMap<String, TabObject47> playerTab47 = new HashMap<String, TabObject47>();
+    private static HashMap<String, TabHolder47> playerTabLast47 = new HashMap<String, TabHolder47>();
     private static HashMap<Player, ArrayList<PacketContainer>> cachedPackets = new HashMap<Player, ArrayList<PacketContainer>>();
     private static HashMap<Player, Integer> updateSchedules = new HashMap<Player, Integer>();
-    private static int horzTabSize = 3;
+    private static int horizTabSize = 3;
     private static int vertTabSize = 20;
+    private static int horizTabSize47 = 4;
+    private static int vertTabSize47 = 20;
     private static String[] colors =
     {
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "a", "b", "c", "d", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u", "v", "w", "x", "y", "z"
@@ -52,7 +57,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
     private static int e = 0;
     private static int r = 0;
     private static long flickerPrevention = 5L;
-    private static ProtocolManager protocolManager;
+    public static ProtocolManager protocolManager;
     private static boolean shuttingdown = false;
     private static TabAPI plugin;
 
@@ -97,24 +102,17 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
                     public void onPacketSending(PacketEvent event)
                     {
                         PacketContainer p = event.getPacket();
-                        if (protocolManager.getProtocolVersion(event.getPlayer()) >= 47)
-                        {
-                            // 1.8 >
-                            String s = p.getStrings().read(0);
-                            if (s.startsWith("$"))
-                            {
-                                event.setCancelled(true);
-                            }
+                        String s = p.getStrings().read(0);
+                        if (s.startsWith("$"))
+                        {  // this is a packet sent by TabAPI **Work around until I figure out how to make my own
+                            p.getStrings().write(0, s.substring(1));  // packets bypass this block**
                             event.setPacket(p);
                         }
                         else
                         {
-                            // 1.7.10 <
-                            String s = p.getStrings().read(0);
-                            if (s.startsWith("$"))
+                            if (protocolManager.getProtocolVersion(event.getPlayer()) >= 47)
                             {
-                                p.getStrings().write(0, s.substring(1));
-                                event.setPacket(p);
+                                // send skins and entity normally in protocol 47
                             }
                             else
                             {
@@ -142,6 +140,8 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         flushPackets();
         playerTab = null;
         playerTabLast = null;
+        playerTab47 = null;
+        playerTabLast47 = null;
     }
 
     @Override
@@ -159,66 +159,25 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
             }
             else
             {
-                player.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD + "TabAPI - Double0negative" + ChatColor.RESET + ChatColor.RED + " Version: " + pdfFile.getVersion());
-                int iii = 0;
-                for (int i = 0; i <= 19; i++)
-                {
-                    PacketContainer message = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
-                    String msg = "-" + iii;
-                    String nameToShow = ((!shuttingdown) ? "$" : "") + msg;
-                    boolean b = true;
-                    int ping = 0;
-                    int action;
-                    if (b)
-                    {
-                        action = 0;
-                    }
-                    else
-                    {
-                        action = 4;
-                    }
-                    message.getIntegers().write(0, action);  // int - ACTION
-                    message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow).getBytes(Charsets.UTF_8)), nameToShow));
-                    message.getIntegers().write(1, 0); // int - GAMEMODE
-                    message.getIntegers().write(2, ping); // int - PING
-                    message.getStrings().write(0, nameToShow); // string - DISPLAYNAME
-                    try
-                    {
-                        protocolManager.sendServerPacket(player, message);
-                    }
-                    catch (InvocationTargetException e)
-                    {
-                        throw new RuntimeException("Cannot send packet " + message, e);
-                    }
-                    iii++;
-                }
+                player.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD + "TabAPI - Double0negative, NeT32" + ChatColor.RESET + ChatColor.RED + " Version: " + pdfFile.getVersion());
             }
         }
         else
         {
-            sender.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD + "TabAPI - Double0negative" + ChatColor.RESET + ChatColor.RED + " Version: " + pdfFile.getVersion());
+            sender.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD + "TabAPI - Double0negative, NeT32" + ChatColor.RESET + ChatColor.RED + " Version: " + pdfFile.getVersion());
             return true;
         }
         return true;
     }
 
-    private static void addPacket(Player p, String msg, boolean b, int ping)
+    private static void addPacket(Player p, String msg, int slotId, WrappedGameProfile gameProfile, boolean b, int ping)
     {
         PacketContainer message = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
         String nameToShow = ((!shuttingdown) ? "$" : "") + msg;
-        // 1.8 >
-        /*
-         getIntegers = 3
-         getStrings = 1
-         getModifier = 5
-         [
-         int
-         class net.minecraft.util.com.mojang.authlib.GameProfile
-         int
-         int
-         class java.lang.String
-         ]
-         */
+        if (protocolManager.getProtocolVersion(p) >= 47)
+        {
+            nameToShow = ((!shuttingdown) ? "$" : "") + ChatColor.DARK_GRAY + "" + slotId + ": " + msg.substring(0, Math.min(msg.length(), 10));
+        }
         int action;
         if (b)
         {
@@ -229,7 +188,14 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
             action = 4;
         }
         message.getIntegers().write(0, action);  // int - ACTION
-        message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow).getBytes(Charsets.UTF_8)), nameToShow));
+        if (gameProfile != null)
+        {
+            message.getGameProfiles().write(0, gameProfile.withName(nameToShow.substring(1)).withId(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)).toString()));
+        }
+        else
+        {
+            message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)), nameToShow.substring(1)));
+        }
         message.getIntegers().write(1, 0); // int - GAMEMODE
         message.getIntegers().write(2, ping); // int - PING
         message.getStrings().write(0, nameToShow); // string - DISPLAYNAME
@@ -252,7 +218,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         }
     }
 
-    private static void flushPackets(final Player p, final TabHolder tabCopy)
+    private static void flushPackets(final Player p, final Object tabCopy)
     {
         final PacketContainer[] packets = (PacketContainer[]) cachedPackets.get(p).toArray(new PacketContainer[0]);
         // cancel old task (prevents flickering)
@@ -282,7 +248,14 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
                 }
                 if (tabCopy != null)
                 {
-                    playerTabLast.put(p.getName(), tabCopy); // we set this only if we really finally flush it (which is just now)
+                    if (tabCopy instanceof TabHolder47)
+                    {
+                        playerTabLast47.put(p.getName(), (TabHolder47) tabCopy); // we set this only if we really finally flush it (which is just now)
+                    }
+                    else if (tabCopy instanceof TabHolder)
+                    {
+                        playerTabLast.put(p.getName(), (TabHolder) tabCopy); // we set this only if we really finally flush it (which is just now)
+                    }
                 }
                 updateSchedules.remove(p); // we're done, no need to cancel this one on next run
             }
@@ -299,6 +272,17 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         {
             tabo = new TabObject();
             playerTab.put(p.getName(), tabo);
+        }
+        return tabo;
+    }
+
+    private static TabObject47 getTab47(Player p)
+    {
+        TabObject47 tabo = playerTab47.get(p.getName());
+        if (tabo == null)
+        {
+            tabo = new TabObject47();
+            playerTab47.put(p.getName(), tabo);
         }
         return tabo;
     }
@@ -327,6 +311,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
     public static void disableTabForPlayer(Player p)
     {
         playerTab.put(p.getName(), null);
+        playerTab47.put(p.getName(), null);
         resetTabList(p);
     }
 
@@ -343,7 +328,7 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         {
             setTabString(Bukkit.getPluginManager().getPlugin("TabAPI"), p, a, b, pl.getPlayerListName());
             b++;
-            if (b > horzTabSize)
+            if (b > TabAPI.getHorizSize(protocolManager.getProtocolVersion(pl)))
             {
                 b = 0;
                 a++;
@@ -353,7 +338,12 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
 
     public static void setTabString(Plugin plugin, Player p, int x, int y, String msg)
     {
-        setTabString(plugin, p, x, y, msg, 0);
+        setTabString(plugin, p, x, y, msg, 0, null);
+    }
+
+    public static void setTabString(Plugin plugin, Player p, int x, int y, String msg, int ping)
+    {
+        setTabString(plugin, p, x, y, msg, ping, null);
     }
 
     /**
@@ -368,14 +358,24 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
      * @param y
      * @param msg
      * @param ping
+     * @param gameProfile
      */
-    public static void setTabString(Plugin plugin, Player p, int x, int y, String msg, int ping)
+    public static void setTabString(Plugin plugin, Player p, int x, int y, String msg, int ping, WrappedGameProfile gameProfile)
     {
         try
         {
-            TabObject tabo = getTab(p);
-            tabo.setTab(plugin, x, y, msg, ping);
-            playerTab.put(p.getName(), tabo);
+            if (protocolManager.getProtocolVersion(p) >= 47)
+            {
+                TabObject47 tabo = getTab47(p);
+                tabo.setTab(plugin, x, y, msg, ping, gameProfile);
+                playerTab47.put(p.getName(), tabo);
+            }
+            else
+            {
+                TabObject tabo = getTab(p);
+                tabo.setTab(plugin, x, y, msg, ping);
+                playerTab.put(p.getName(), tabo);
+            }
         }
         catch (Exception ex)
         {
@@ -398,29 +398,59 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         }
         r = 0;
         e = 0;
-        TabObject tabo = playerTab.get(p.getName());
-        TabHolder tab = tabo.getTab();
-        if (tab == null)
+        if (protocolManager.getProtocolVersion(p) >= 47)
         {
-            return;
-        }
-        /* need to clear the tab first */
-        clearTab(p);
-        for (int b = 0; b < tab.maxv; b++)
-        {
-            for (int a = 0; a < tab.maxh; a++)
+            TabObject47 tabo = playerTab47.get(p.getName());
+            TabHolder47 tab = tabo.getTab();
+            if (tab == null)
             {
-                // fix empty tabs
-                if (tab.tabs[a][b] == null)
-                {
-                    tab.tabs[a][b] = nextNull();
-                }
-                String msg = tab.tabs[a][b];
-                int ping = tab.tabPings[a][b];
-                addPacket(p, (msg == null) ? " " : msg.substring(0, Math.min(msg.length(), 16)), true, ping);
+                return;
             }
+            /* need to clear the tab first */
+            clearTab(p);
+            for (int b = 0; b < tab.maxv; b++)
+            {
+                for (int a = 0; a < tab.maxh; a++)
+                {
+                    // fix empty tabs
+                    if (tab.tabs[a][b] == null)
+                    {
+                        tab.tabs[a][b] = nextNull();
+                    }
+                    String msg = tab.tabs[a][b];
+                    int ping = tab.tabPings[a][b];
+                    WrappedGameProfile gameProfile = tab.tabGameProfiles[a][b];
+                    addPacket(p, (msg == null) ? " " : msg.substring(0, Math.min(msg.length(), 16)), getSlotId(b, a), gameProfile, true, ping);
+                }
+            }
+            flushPackets(p, tab.getCopy());
         }
-        flushPackets(p, tab.getCopy());
+        else
+        {
+            TabObject tabo = playerTab.get(p.getName());
+            TabHolder tab = tabo.getTab();
+            if (tab == null)
+            {
+                return;
+            }
+            /* need to clear the tab first */
+            clearTab(p);
+            for (int b = 0; b < tab.maxv; b++)
+            {
+                for (int a = 0; a < tab.maxh; a++)
+                {
+                    // fix empty tabs
+                    if (tab.tabs[a][b] == null)
+                    {
+                        tab.tabs[a][b] = nextNull();
+                    }
+                    String msg = tab.tabs[a][b];
+                    int ping = tab.tabPings[a][b];
+                    addPacket(p, (msg == null) ? " " : msg.substring(0, Math.min(msg.length(), 16)), 0, null, true, ping);
+                }
+            }
+            flushPackets(p, tab.getCopy());
+        }
     }
 
     /**
@@ -434,16 +464,35 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         {
             return;
         }
-        TabHolder tabold = playerTabLast.get(p.getName());
-        if (tabold != null)
+        if (protocolManager.getProtocolVersion(p) >= 47)
         {
-            for (String[] s : tabold.tabs)
+            TabHolder47 tabold = playerTabLast47.get(p.getName());
+            if (tabold != null)
             {
-                for (String msg : s)
+                for (int b = 0; b < tabold.maxv; b++)
                 {
-                    if (msg != null)
+                    for (int a = 0; a < tabold.maxh; a++)
                     {
-                        addPacket(p, msg.substring(0, Math.min(msg.length(), 16)), false, 0);
+                        String msg = tabold.tabs[a][b];
+                        WrappedGameProfile gameProfile = tabold.tabGameProfiles[a][b];
+                        addPacket(p, msg.substring(0, Math.min(msg.length(), 16)), getSlotId(b, a), gameProfile, false, 0);
+                    }
+                }
+            }
+        }
+        else
+        {
+            TabHolder tabold = playerTabLast.get(p.getName());
+            if (tabold != null)
+            {
+                for (String[] s : tabold.tabs)
+                {
+                    for (String msg : s)
+                    {
+                        if (msg != null)
+                        {
+                            addPacket(p, msg.substring(0, Math.min(msg.length(), 16)), 0, null, false, 0);
+                        }
                     }
                 }
             }
@@ -483,15 +532,68 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         //cleanup
         playerTab.remove(e.getPlayer().getName());
         playerTabLast.remove(e.getPlayer().getName());
+        playerTab47.remove(e.getPlayer().getName());
+        playerTabLast47.remove(e.getPlayer().getName());
     }
 
+    @EventHandler
+    public void PlayerKick(PlayerKickEvent e)
+    {
+        //cleanup
+        playerTab.remove(e.getPlayer().getName());
+        playerTabLast.remove(e.getPlayer().getName());
+        playerTab47.remove(e.getPlayer().getName());
+        playerTabLast47.remove(e.getPlayer().getName());
+    }
+
+    @Deprecated
     public static int getVertSize()
     {
         return vertTabSize;
     }
 
+    @Deprecated
     public static int getHorizSize()
     {
-        return horzTabSize;
+        return horizTabSize;
+    }
+
+    public static int getVertSize(int protocol)
+    {
+        if (protocol >= 47)
+        {
+            return vertTabSize47;
+        }
+        return vertTabSize;
+    }
+
+    public static int getHorizSize(int protocol)
+    {
+        if (protocol >= 47)
+        {
+            return horizTabSize47;
+        }
+        return horizTabSize;
+    }
+
+    public static int getSlotId(int x, int y)
+    {
+        if (y == 0)
+        {
+            return 11 + x;
+        }
+        if (y == 1)
+        {
+            return 31 + x;
+        }
+        if (y == 2)
+        {
+            return 51 + x;
+        }
+        if (y == 3)
+        {
+            return 71 + x;
+        }
+        return 0;
     }
 }
