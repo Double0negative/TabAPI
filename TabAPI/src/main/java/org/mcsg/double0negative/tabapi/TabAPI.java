@@ -7,12 +7,17 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.comphenix.protocol.wrappers.EnumWrappers.PlayerInfoAction;
+import com.comphenix.protocol.wrappers.PlayerInfoData;
+import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.comphenix.protocol.wrappers.WrappedGameProfile;
 import com.google.common.base.Charsets;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -102,10 +107,20 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
                     public void onPacketSending(PacketEvent event)
                     {
                         PacketContainer p = event.getPacket();
-                        String s = p.getStrings().read(0);
+                        List<PlayerInfoData> pinfodata = p.getPlayerInfoDataLists().read(0);
+                        String s = pinfodata.get(0).getProfile().getName();
                         if (s.startsWith("$"))
                         {  // this is a packet sent by TabAPI **Work around until I figure out how to make my own
-                            p.getStrings().write(0, s.substring(1));  // packets bypass this block**
+                            //p.getStrings().write(0, s.substring(1));  // packets bypass this block**
+                            List<PlayerInfoData> pinfodataReSend = new ArrayList<PlayerInfoData>();
+                            PlayerInfoData pinfod = pinfodata.get(0);
+                            pinfodataReSend.add(new PlayerInfoData(
+                                            pinfod.getProfile().withName(s.substring(1)),
+                                            pinfod.getPing(),
+                                            pinfod.getGameMode(),
+                                            WrappedChatComponent.fromText(pinfod.getProfile().getName().substring(1)))
+                            );
+                            p.getPlayerInfoDataLists().write(0, pinfodataReSend);
                             event.setPacket(p);
                         }
                         else
@@ -178,28 +193,36 @@ public class TabAPI extends JavaPlugin implements Listener, CommandExecutor {
         {
             nameToShow = ((!shuttingdown) ? "$" : "") + ChatColor.DARK_GRAY + "" + slotId + ": " + msg.substring(0, Math.min(msg.length(), 10));
         }
-        int action;
+        PlayerInfoAction action;
         if (b)
         {
-            action = 0;
+            action = PlayerInfoAction.ADD_PLAYER;
         }
         else
         {
-            action = 4;
+            action = PlayerInfoAction.REMOVE_PLAYER;
         }
-        message.getIntegers().write(0, action);  // int - ACTION
+        message.getPlayerInfoAction().write(0, action);
+        List<PlayerInfoData> pInfoData = new ArrayList<PlayerInfoData>();
         if (gameProfile != null)
         {
-            message.getGameProfiles().write(0, gameProfile.withName(nameToShow.substring(1)).withId(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)).toString()));
+            pInfoData.add(new PlayerInfoData(
+                    gameProfile.withName(nameToShow.substring(1)).withId(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)).toString()),
+                    ping,
+                    EnumWrappers.NativeGameMode.SURVIVAL,
+                    WrappedChatComponent.fromText(nameToShow))
+            );
         }
         else
         {
-            message.getGameProfiles().write(0, new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)), nameToShow.substring(1)));
+            pInfoData.add(new PlayerInfoData(
+                    new WrappedGameProfile(java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + nameToShow.substring(1)).getBytes(Charsets.UTF_8)), nameToShow.substring(1)),
+                    ping,
+                    EnumWrappers.NativeGameMode.SURVIVAL,
+                    WrappedChatComponent.fromText(nameToShow))
+            );
         }
-        message.getIntegers().write(1, 0); // int - GAMEMODE
-        message.getIntegers().write(2, ping); // int - PING
-        message.getStrings().write(0, nameToShow); // string - DISPLAYNAME
-        //
+        message.getPlayerInfoDataLists().write(0, pInfoData);
         ArrayList<PacketContainer> packetList = cachedPackets.get(p);
         if (packetList == null)
         {

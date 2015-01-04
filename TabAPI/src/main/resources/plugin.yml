@@ -1,6 +1,6 @@
 name: TabAPI
 main: org.mcsg.double0negative.tabapi.TabAPI
-version: B 0.1.16
+version: B 0.1.17
 authors: [Double0negative, MCSG]
 depend: [ProtocolLib]
 
