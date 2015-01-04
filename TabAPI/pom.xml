@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.mcsg.double0negative</groupId>
     <artifactId>tabapi</artifactId>
-    <version>B 0.1.16</version>
+    <version>B 0.1.17</version>
     <name>TabAPI</name>
     <repositories>
         <repository>
