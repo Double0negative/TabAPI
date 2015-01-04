@@ -1,16 +1,21 @@
 package org.mcsg.double0negative.tabapi;
 
+import com.comphenix.protocol.wrappers.WrappedGameProfile;
 import java.util.HashMap;
 import org.bukkit.plugin.Plugin;
 
-public class TabObject {
+/**
+ *
+ * @author NeT32
+ */
+public class TabObject47 {
 
     /**
      * Holds a list of tab information for a player.
      *
      *
      */
-    HashMap<Integer, TabHolder> tabs = new HashMap<Integer, TabHolder>();
+    HashMap<Integer, TabHolder47> tabs = new HashMap<Integer, TabHolder47>();
 
     public void setPriority(Plugin p, int pri)
     {
@@ -24,12 +29,12 @@ public class TabObject {
         }
         if (pri > -2)
         {
-            TabHolder t = new TabHolder(p);
+            TabHolder47 t = new TabHolder47(p);
             tabs.put(pri, t);
         }
     }
 
-    public TabHolder getTab()
+    public TabHolder47 getTab()
     {
         int a = 3;
         while (tabs.get(a) == null && a > -3)
@@ -38,13 +43,13 @@ public class TabObject {
         }
         if (a == -2)
         {
-            return new TabHolder(null);
+            return new TabHolder47(null);
         }
         //System.out.print("Getting tab "+a+" "+tabs.get(a).p.getName());
         return tabs.get(a);
     }
 
-    public void setTab(Plugin plugin, int x, int y, String msg, int ping)
+    public void setTab(Plugin plugin, int x, int y, String msg, int ping, WrappedGameProfile gameProfile)
     {
         int a = -1;
         while ((tabs.get(a) == null || tabs.get(a).p != plugin) && a < 3)
@@ -57,11 +62,12 @@ public class TabObject {
             setPriority(plugin, 0);
             a = 0;
         }
-		//System.out.println(plugin.getName()+": "+a);
-        TabHolder t = tabs.get(a);
+        //System.out.println(plugin.getName()+": "+a);
+        TabHolder47 t = tabs.get(a);
         t.tabs[y][x] = msg;
         t.tabPings[y][x] = ping;
-        t.maxh = 3;
+        t.tabGameProfiles[y][x] = gameProfile;
+        t.maxh = TabAPI.getHorizSize(47);
         t.maxv = Math.max(x + 1, t.maxv);
     }
 }
